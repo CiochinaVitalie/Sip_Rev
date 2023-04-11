@@ -7,8 +7,7 @@
 #include <stdint.h>
 #include <string>
 
-#include "g711.h"
-#include "rtp.h"
+
 
 #include <algorithm>
 #include <deque>
@@ -18,8 +17,11 @@
 #include <iomanip>
 #include <iostream>
 
-extern C {
+#include "rtp.h"
+
+extern "C" {
 #include "main.h"
+#include "g711.h"
 }
 
 #define AUDIO_BUFFER_LEN 160
@@ -167,7 +169,7 @@ void audioRX(std::string RTPpacket)
         //ESP_LOGI("audio_client", "codec: PCMU");
         audio_codec = 0;
         int j = 0;
-        for (int i = 12; i < RTPpacket.size(); i++) {
+        for (size_t i = 12; i < RTPpacket.size(); i++) {
             media.payload[j] = chcopy(ulaw2linear(RTPpacket[i]));
             j++;
         }
@@ -177,7 +179,7 @@ void audioRX(std::string RTPpacket)
         //ESP_LOGI("audio_client", "codec: PCMA");
         audio_codec = 8;
         int j = 0;
-        for (int i = 12; i < RTPpacket.size(); i++) {
+        for (size_t i = 12; i < RTPpacket.size(); i++) {
             media.payload[j] = chcopy(alaw2linear(RTPpacket[i]));
             j++;
         }

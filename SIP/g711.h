@@ -139,3 +139,4 @@ int8_t linear2ulaw(int16_t number)
         ;
    lsb = (number >> (position - 4)) & 0x0f;
    return (~(sign | ((position - 5) << 4) | lsb));
+}
