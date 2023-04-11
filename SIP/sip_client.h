@@ -2,7 +2,7 @@
 
 #include "sip_packet.h"
 #include "lwip_udp_client.h"
-//#include "audio_client/audio_client.h"
+#include "audio_client.h"
 //
 //#include "display/display.h"
 
