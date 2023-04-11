@@ -1,0 +1,67 @@
+# STM32 gitignore
+
+# Ignore all
+*
+
+# Unignore all dirs
+!*/
+
+## Except
+#GitFiles
+!*.bat
+
+#GitFiles
+!.gitkeep
+
+#Dockerfile
+!*Dockerfile*
+
+# Program files
+!*.c
+!*.h
+!*.s
+!*.a
+
+# IAR project
+!*.ewd
+!*.ewp
+!*.ewt
+!*.eww
+
+# IAR Linker files
+!*.icf
+
+# stm32cube project
+!*.ioc
+
+# Eclipse project
+!*.cproject
+!*.project
+!*.ld
+
+# MDK-ARM project
+!*.uvprojx
+
+# git files
+!.gitignore
+!.gitattributes
+
+# Markdown files
+!*.md
+
+# Images
+!*.jpg
+!*.png
+
+# Python script
+!*.py
+
+# STM Studio project
+!*.tsc
+!*.tsp
+
+# Ceedling project
+!*.yml
+
+# Tests build folder
+build/
