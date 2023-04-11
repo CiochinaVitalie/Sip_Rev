@@ -55,7 +55,7 @@ void DebugMon_Handler(void);
 void TIM2_IRQHandler(void);
 void ETH_IRQHandler(void);
 /* USER CODE BEGIN EFP */
-
+void EXTI0_IRQHandler(void);
 /* USER CODE END EFP */
 
 #ifdef __cplusplus
