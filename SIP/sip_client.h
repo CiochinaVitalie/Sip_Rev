@@ -102,6 +102,14 @@ static void rtp_task(void* pvParameters)
     }
 }
 
+const osThreadAttr_t rtp_task_attribute = {
+    	  .name = "rtpTask",
+    	  .stack_size = 128 * 32,
+    	  .priority = (osPriority_t) osPriorityNormal,
+    	};
+
+osThreadId_t rtpTaskHandle;
+
 struct SipClientEvent {
     enum class Event {
         CALL_START,
@@ -146,7 +154,9 @@ public:
         , m_command_event_group(osEventFlagsNew(NULL))//xEventGroupCreate()
     {
 
-    	xTaskCreate(&rtp_task, "rtp_task", 4096, &m_rtp_socket, 4, NULL);
+
+    	osThreadNew(rtp_task, NULL, &rtp_task_attribute);
+    	//xTaskCreate(&rtp_task, "rtp_task", 4096, &m_rtp_socket, 4, NULL);
     }
 
     ~SipClientInt()
@@ -764,7 +774,8 @@ private:
         switch (new_state) {
         case SipState::IDLE:
             //dsp_ok_wifi();
-            vTaskDelay(1500 / portTICK_PERIOD_MS);
+            //vTaskDelay(1500 / portTICK_PERIOD_MS);
+        	osDelay(1500);
             //dsp_wait_sip();
             break;
         case SipState::REGISTERED:

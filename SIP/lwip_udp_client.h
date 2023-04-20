@@ -4,13 +4,13 @@
 #include <string>
 #include <cstring>
 
-extern "C" {
+
 	#include "lwip/err.h"
 	#include "lwip/sockets.h"
 	#include "lwip/sys.h"
 	#include "lwip/netdb.h"
 	#include "lwip/dns.h"
-}
+
 
 static constexpr const int RX_BUFFER_SIZE = 2048;
 static constexpr const int TX_BUFFER_SIZE = 2048;
