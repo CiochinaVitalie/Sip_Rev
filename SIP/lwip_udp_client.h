@@ -56,7 +56,7 @@ public:
     }
     Buffer<SIZE>& operator<<(uint32_t i)
     {
-        snprintf(m_buffer.data() + strlen(m_buffer.data()), m_buffer.size() - strlen(m_buffer.data()), "%d", i);
+        snprintf(m_buffer.data() + strlen(m_buffer.data()), m_buffer.size() - strlen(m_buffer.data()), "%lu", i);
         return *this;
     }
 

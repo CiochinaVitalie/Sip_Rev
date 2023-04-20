@@ -1,5 +1,12 @@
 #pragma once
 
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "timers.h"
+#include "event_groups.h"
+
 #include "sip_packet.h"
 #include "lwip_udp_client.h"
 #include "audio_client.h"
@@ -24,7 +31,7 @@
 
 extern "C" {
 #include <unistd.h>
-#include "cmsis_os2.h"
+//#include "cmsis_os2.h"
 }
 
 #define BIT0	( 1 << 0 )
@@ -50,7 +57,8 @@ static void rtp_task(void* pvParameters)
     LwipUdpClient* socket = (LwipUdpClient*)pvParameters;
     for (;;) {
         if (!socket->is_initialized()) {
-        	osDelay(2000);
+        	vTaskDelay( 2000/portTICK_PERIOD_MS );
+        	//osDelay(2000);
 //            //ESP_LOGI("RTP", "niezainicjowane");
 //            i2s_init();
 //            display_init();
@@ -87,7 +95,8 @@ static void rtp_task(void* pvParameters)
             //i2s_pause();
             if (statFull)
             {
-            	osDelay(2000);
+            	//osDelay(2000);
+            	vTaskDelay( 2000/portTICK_PERIOD_MS );
                 std::cout << "Statistics for 100 packets:" << std::endl;
                 std::cout << " time;freeram" << std::endl;
                 for (int k = 0; k < 100; k++)
@@ -102,13 +111,13 @@ static void rtp_task(void* pvParameters)
     }
 }
 
-const osThreadAttr_t rtp_task_attribute = {
-    	  .name = "rtpTask",
-    	  .stack_size = 128 * 32,
-    	  .priority = (osPriority_t) osPriorityNormal,
-    	};
-
-osThreadId_t rtpTaskHandle;
+//const osThreadAttr_t rtp_task_attribute = {
+//    	  .name = "rtpTask",
+//    	  .stack_size = 128 * 32,
+//    	  .priority = (osPriority_t) osPriorityNormal,
+//    	};
+//
+//osThreadId_t rtpTaskHandle;
 
 struct SipClientEvent {
     enum class Event {
@@ -151,12 +160,12 @@ public:
         , m_branch(std::rand() % 2147483647)
         , m_caller_display(m_user)
         , m_sdp_session_id(0)
-        , m_command_event_group(osEventFlagsNew(NULL))//xEventGroupCreate()
+        , m_command_event_group(xEventGroupCreate())//osEventFlagsNew(NULL)
     {
 
 
-    	osThreadNew(rtp_task, NULL, &rtp_task_attribute);
-    	//xTaskCreate(&rtp_task, "rtp_task", 4096, &m_rtp_socket, 4, NULL);
+    	//osThreadNew(rtp_task, NULL, &rtp_task_attribute);
+    	xTaskCreate(&rtp_task, "rtp_task", 4096, &m_rtp_socket, 4, NULL);
     }
 
     ~SipClientInt()
@@ -218,8 +227,8 @@ public:
             m_uri = "sip:" + local_number + "@" + m_server_ip;
             m_to_uri = "sip:" + local_number + "@" + m_server_ip;
             m_caller_display = caller_display;
-            osEventFlagsSet(m_command_event_group, COMMAND_DIAL_BIT);
-            //xEventGroupSetBits(m_command_event_group, COMMAND_DIAL_BIT);
+            //osEventFlagsSet(m_command_event_group, COMMAND_DIAL_BIT);
+            xEventGroupSetBits(m_command_event_group, COMMAND_DIAL_BIT);
         }
     }
 
@@ -227,8 +236,8 @@ public:
     {
         if ((m_state == SipState::RINGING) || (m_state == SipState::CALL_IN_PROGRESS)) {
             //ESP_LOGI(TAG, "Request to CANCEL call");
-            //xEventGroupSetBits(m_command_event_group, COMMAND_CANCEL_BIT);
-        	osEventFlagsSet(m_command_event_group, COMMAND_CANCEL_BIT);
+            xEventGroupSetBits(m_command_event_group, COMMAND_CANCEL_BIT);
+        	//osEventFlagsSet(m_command_event_group, COMMAND_CANCEL_BIT);
         }
     }
 
@@ -295,8 +304,8 @@ private:
         case SipState::RINGING:
             // RTP ssrc generation
             ssrc = std::rand() % 2147483647;
-            if ( osEventFlagsSet(m_command_event_group, COMMAND_CANCEL_BIT)) {
-                //xEventGroupWaitBits(m_command_event_group, COMMAND_CANCEL_BIT, true, true, 0)
+            if (xEventGroupWaitBits(m_command_event_group, COMMAND_CANCEL_BIT, true, true, 0)) {
+            	//osEventFlagsSet(m_command_event_group, COMMAND_CANCEL_BIT)
             	// //ESP_LOGD(TAG, "Sending cancel request");
                 // send_sip_cancel();
             }
@@ -305,8 +314,8 @@ private:
             send_sip_ack();
             break;
         case SipState::CALL_IN_PROGRESS:
-            if (osEventFlagsSet(m_command_event_group, COMMAND_CANCEL_BIT)) {
-                //xEventGroupWaitBits(m_command_event_group, COMMAND_CANCEL_BIT, true, true, 0)
+            if (xEventGroupWaitBits(m_command_event_group, COMMAND_CANCEL_BIT, true, true, 0)) {
+            	//osEventFlagsSet(m_command_event_group, COMMAND_CANCEL_BIT)
             	//ESP_LOGD(TAG, "Sending bye request");
                 //send_sip_bye();
             }
@@ -324,8 +333,8 @@ private:
     void rx()
     {
         if (m_state == SipState::REGISTERED) {
-            if (osEventFlagsSet(m_command_event_group, COMMAND_DIAL_BIT)) {
-            	//xEventGroupWaitBits(m_command_event_group, COMMAND_DIAL_BIT, true, true, 0)
+            if (xEventGroupWaitBits(m_command_event_group, COMMAND_DIAL_BIT, true, true, 0)) {
+            	//osEventFlagsSet(m_command_event_group, COMMAND_DIAL_BIT)
                 m_state = SipState::INVITE_UNAUTH;
                 log_state_transition(SipState::REGISTERED, m_state);
             }
@@ -774,8 +783,8 @@ private:
         switch (new_state) {
         case SipState::IDLE:
             //dsp_ok_wifi();
-            //vTaskDelay(1500 / portTICK_PERIOD_MS);
-        	osDelay(1500);
+            vTaskDelay(1500 / portTICK_PERIOD_MS);
+        	//osDelay(1500);
             //dsp_wait_sip();
             break;
         case SipState::REGISTERED:
@@ -828,8 +837,8 @@ private:
     std::function<void(const SipClientEvent&)> m_event_handler;
 
     /* FreeRTOS event group to signal commands from other tasks */
-    //EventGroupHandle_t m_command_event_group;
-    osEventFlagsId_t  m_command_event_group;
+    EventGroupHandle_t m_command_event_group;
+    //osEventFlagsId_t  m_command_event_group;
     static constexpr uint8_t COMMAND_DIAL_BIT = BIT0;
     static constexpr uint8_t COMMAND_CANCEL_BIT = BIT1;
 
