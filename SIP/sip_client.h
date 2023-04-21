@@ -416,8 +416,8 @@ private:
                 m_realm = "";
                 m_response = "";
                 //ESP_LOGI(TAG, "REGISTER - OK :)");
-                m_uri = "sip:**613@" + m_server_ip;
-                m_to_uri = "sip:**613@" + m_server_ip;
+                m_uri = "sip:102@" + m_server_ip;
+                m_to_uri = "sip:102@" + m_server_ip;
                 m_state = SipState::REGISTERED;
             } else {
                 m_state = SipState::ERROR;
