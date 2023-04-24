@@ -70,9 +70,6 @@ public:
     {
         using namespace sml;
 
-//        ESP_ERROR_CHECK(gpio_install_isr_service(0));
-//        ESP_ERROR_CHECK(gpio_isr_handler_add(GPIO_PIN, &ButtonInputHandler::int_handler, (void*)this));
-
         for (;;)
         {
             Event event;
@@ -83,18 +80,21 @@ public:
             {
                 if (event == Event::BUTTON_PRESS)
                 {
-                    m_sm.process_event(e_btn{});
+                    //m_sm.process_event(e_btn{});
                     //ESP_LOGI("BUTTON", "button is pressed");
+                	 BSP_LED_Toggle(LED6);
                 }
                 else if (event == Event::CALL_END)
                 {
-                    m_sm.process_event(e_call_end{});
+                   // m_sm.process_event(e_call_end{});
                     //ESP_LOGI("BUTTON", "call is ended");
+                    BSP_LED_Toggle(LED6);
                 }
             }
             else
             {
-                m_sm.process_event(e_timeout{});
+                //m_sm.process_event(e_timeout{});
+            	BSP_LED_Toggle(LED5);
             }
         }
     }
