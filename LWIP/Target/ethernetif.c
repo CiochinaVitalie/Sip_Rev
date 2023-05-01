@@ -53,6 +53,7 @@
 
 /* USER CODE BEGIN 1 */
 
+
 /* USER CODE END 1 */
 
 /* Private variables ---------------------------------------------------------*/
@@ -178,6 +179,8 @@ void HAL_ETH_ErrorCallback(ETH_HandleTypeDef *handlerEth)
  * @param netif the already initialized lwip network interface structure
  *        for this ethernetif
  */
+extern struct netif *ext_netif;
+
 static void low_level_init(struct netif *netif)
 {
   HAL_StatusTypeDef hal_eth_init_status = HAL_OK;
@@ -188,8 +191,9 @@ static void low_level_init(struct netif *netif)
   int32_t PHYLinkState = 0;
   ETH_MACConfigTypeDef MACConf = {0};
   /* Start ETH HAL Init */
+//  ext_netif = netif;
 
-   uint8_t MACAddr[6] ;
+  uint8_t MACAddr[6] ;
   heth.Instance = ETH;
   MACAddr[0] = 0x00;
   MACAddr[1] = 0x80;
@@ -255,7 +259,15 @@ static void low_level_init(struct netif *netif)
   attributes.name = "EthIf";
   attributes.stack_size = INTERFACE_THREAD_STACK_SIZE;
   attributes.priority = osPriorityRealtime;
-  osThreadNew(ethernetif_input, netif, &attributes);
+
+  osThreadId thread_id = osThreadNew(ethernetif_input, netif, &attributes);
+
+  if(thread_id  == NULL)
+  {
+	  osStatus_t status = osThreadGetState(thread_id);
+	  printf("error status %d",status);
+	  return;
+  }
 /* USER CODE END OS_THREAD_NEW_CMSIS_RTOS_V2 */
 
 /* USER CODE BEGIN PHY_PRE_CONFIG */
@@ -429,7 +441,7 @@ void ethernetif_input(void* argument)
 
   for( ;; )
   {
-    if (osSemaphoreAcquire(RxPktSemaphore, TIME_WAITING_FOR_INPUT) == osOK)
+	if (osSemaphoreAcquire(RxPktSemaphore, TIME_WAITING_FOR_INPUT) == osOK)
     {
       do
       {
@@ -730,6 +742,7 @@ int32_t ETH_PHY_IO_GetTick(void)
   return HAL_GetTick();
 }
 
+
 /**
   * @brief  Check the ETH link state then update ETH driver and netif link accordingly.
   * @retval None
@@ -747,6 +760,7 @@ void ethernet_link_thread(void* argument)
 
   for(;;)
   {
+
   PHYLinkState = DP83848_GetLinkState(&DP83848);
 
   if(netif_is_link_up(netif) && (PHYLinkState <= DP83848_STATUS_LINK_DOWN))

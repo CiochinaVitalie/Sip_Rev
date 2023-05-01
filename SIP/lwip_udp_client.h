@@ -11,6 +11,9 @@
 	#include "lwip/netdb.h"
 	#include "lwip/dns.h"
 
+extern "C" {
+#include <stdio.h>
+}
 
 static constexpr const int RX_BUFFER_SIZE = 2048;
 static constexpr const int TX_BUFFER_SIZE = 2048;
@@ -124,7 +127,7 @@ public:
     {
         if (m_socket >= 0)
         {
-            //ESP_LOGW(TAG, "Socket already initialized");
+            printf("%s Socket already initialized \n", TAG);
             return false;
         }
         struct addrinfo hints;
@@ -134,28 +137,28 @@ public:
 
         struct addrinfo *res;
         struct in_addr *addr;
-        //ESP_LOGI(TAG, "Doing DNS lookup for host=%s port=%s", m_server_ip.c_str(), m_server_port.c_str());
+        printf("%s Doing DNS lookup for host=%s port=%s \n", TAG, m_server_ip.c_str(), m_server_port.c_str());
 
         int err = getaddrinfo(m_server_ip.c_str(), m_server_port.c_str(), &hints, &res);
 
         if(err != 0 || res == NULL)
         {
-            //ESP_LOGE(TAG, "DNS lookup failed err=%d res=%p", err, res);
+            printf("%s DNS lookup failed err=%d res=%p \n",TAG, err, res);
             return false;
         }
 
         /* Code to print the resolved IP.
          * Note: inet_ntoa is non-reentrant, look at ipaddr_ntoa_r for "real" code */
         addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
-        //ESP_LOGI(TAG, "DNS lookup succeeded. IP=%s", inet_ntoa(*addr));
+        printf("%s DNS lookup succeeded. IP=%s \n",TAG, inet_ntoa(*addr));
 
         m_socket = socket(res->ai_family, res->ai_socktype, 0);
         if(m_socket < 0) {
-            //ESP_LOGE(TAG, "... Failed to allocate socket.");
+            printf("%s ... Failed to allocate socket. \n", TAG);
             freeaddrinfo(res);
             return false;
         }
-        //ESP_LOGI(TAG, "... allocated socket %d\r\n", m_socket);
+        printf("%s ... allocated socket %d\r\n",TAG, m_socket);
 
         /*Destination*/
         bzero(&m_dest_addr, sizeof(m_dest_addr));
@@ -176,7 +179,7 @@ public:
 
         if (_bind(m_socket, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0)
         {
-            //ESP_LOGE(TAG, "... Failed to bind");
+            printf("%s ... Failed to bind the socket \n",TAG);
             close(m_socket);
             m_socket = INVALID_SOCKET;
             return false;
@@ -203,7 +206,7 @@ public:
 
         if (readable < 0)
         {
-            //ESP_LOGW(TAG, "Select error: %d, errno=%d", readable, errno);
+            printf("%s Select error: %d, errno=%d \n",TAG, readable, errno);
         }
         if (readable <= 0)
         {
@@ -213,12 +216,12 @@ public:
         ssize_t len = recv(m_socket, m_rx_buffer.data(), m_rx_buffer.size(), 0);
         if (len <= 0)
         {
-            //ESP_LOGD(TAG, "Received no data: %d, errno=%d", len, errno);
+            printf("Received no data: %d, errno=%d \n", len, errno);
             return "";
         }
         m_rx_buffer[len] = '\0';
-        //ESP_LOGD(TAG, "Received %d byte", len);
-        //ESP_LOGV(TAG, "Received following data: %s", m_rx_buffer.data());
+        printf("%s Received %d byte \n",TAG, len);
+        printf("%s Received following data: %s \n",TAG, m_rx_buffer.data());
 
         return std::string(m_rx_buffer.data(), len);
     }
@@ -231,12 +234,12 @@ public:
 
     bool send_buffered_data()
     {
-        //ESP_LOGD(TAG, "Sending %d byte", m_tx_buffer.size());
-        //ESP_LOGV(TAG, "Sending following data: %s", m_tx_buffer.data());
+//        printf("%s Sending %d byte \n",TAG, m_tx_buffer.size());
+//        printf("%s Sending following data: %s",TAG, m_tx_buffer.data());
         ssize_t result = sendto(m_socket, m_tx_buffer.data(), m_tx_buffer.size(), 0, (struct sockaddr *)&m_dest_addr, sizeof(m_dest_addr));
         if (result < 0)
         {
-            //ESP_LOGD(TAG, "Failed to send data %d, errno=%d", result, errno);
+            printf("%s Failed to send data %d, errno=%d \n",TAG, result, errno);
         }
         return (size_t)result == m_tx_buffer.size();
     }
@@ -256,6 +259,6 @@ private:
     fd_set m_rx_fds;
     struct timeval m_rx_timeval;
 
-    static constexpr const char* TAG = "UdpSocket";
+    static constexpr const char* TAG = "UdpSocket:";
     static constexpr const int INVALID_SOCKET = -1;
 };

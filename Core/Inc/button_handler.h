@@ -1,7 +1,8 @@
 #pragma once
 
-#include "FreeRTOS.h"
-#include "queue.h"
+//#include "FreeRTOS.h"
+//#include "queue.h"
+#include "cmsis_os2.h"
 
 #include "sml.hpp"
 #include <inttypes.h>
@@ -56,12 +57,14 @@ template <class SipClientT, int RING_DURATION_TIMEOUT_MSEC>
 class ButtonInputHandler
 {
 public:
-	QueueHandle_t m_queue;
+	//QueueHandle_t m_queue;
+	osMessageQueueId_t m_queue;
 
     explicit ButtonInputHandler(SipClientT &client)
         : m_client{client}, m_sm{client}
     {
-        m_queue = xQueueCreate(10, sizeof(Event));
+        //m_queue = xQueueCreate(10, sizeof(Event));
+        m_queue = osMessageQueueNew(10, sizeof(Event), NULL);
 
         BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
     }
@@ -76,25 +79,23 @@ public:
             TickType_t timeout = m_sm.is("idle"_s) ? portMAX_DELAY : RING_DURATION_TICKS;
 
 
-            if (xQueueReceive(m_queue, &event, timeout))
+            if (osMessageQueueGet(m_queue, &event, NULL, timeout) == osOK)//xQueueReceive(m_queue, &event, timeout)
             {
                 if (event == Event::BUTTON_PRESS)
                 {
-                    //m_sm.process_event(e_btn{});
-                    //ESP_LOGI("BUTTON", "button is pressed");
-                	 BSP_LED_Toggle(LED6);
+                    m_sm.process_event(e_btn{});
+                    printf("BUTTON: is pressed \n");
                 }
                 else if (event == Event::CALL_END)
                 {
-                   // m_sm.process_event(e_call_end{});
-                    //ESP_LOGI("BUTTON", "call is ended");
-                    BSP_LED_Toggle(LED6);
+                    m_sm.process_event(e_call_end{});
+                    printf("BUTTON:call is ended \n");
                 }
             }
             else
             {
-                //m_sm.process_event(e_timeout{});
-            	BSP_LED_Toggle(LED5);
+                m_sm.process_event(e_timeout{});
+
             }
         }
     }
@@ -103,7 +104,8 @@ public:
     {
         Event event = Event::CALL_END;
         // don't wait if the queue is full
-        xQueueSend(m_queue, &event, (TickType_t)0);
+        //xQueueSend(m_queue, &event, (TickType_t)0);
+        osMessageQueuePut(m_queue, &event, 0, 0);
     }
 
 private:

@@ -18,19 +18,21 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os2.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-#include "timers.h"
 
 #include "lwip_udp_client.h"
 #include "mbedtls_md5.h"
 #include "sip_client.h"
-#include "lwip.h"
 #include "button_handler.h"
+
+
+extern "C" {
+	#include <stdio.h>
+	#include "lwip.h"
+}
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,35 +58,74 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-void StartDefaultTask(void * argument);
-void Led_fun(void * argument);
+static void MX_USART2_UART_Init(void);
+UART_HandleTypeDef huart2;
+
+void but_task(void * argument);
+void lwip_task(void * argument);
 void sip_task(void *pvParameters);
 /* USER CODE BEGIN PFP */
-TaskHandle_t xHandle = NULL, xButtHandle = NULL;
+
+osThreadId_t thread_sip, thread_button, thread_lwip;
+osEventFlagsId_t event_eth;
+
+constexpr uint8_t COMMAND_ETH_BIT = (1<<2);
+
+osThreadAttr_t sip_attributes = {
+  .name = "SipTask",
+  .stack_size = 4096,
+  .priority = osPriorityNormal
+};
+
+osThreadAttr_t but_attributes = {
+  .name = "ButTask",
+  .stack_size = 1024,
+  .priority = osPriorityNormal
+};
+
+osThreadAttr_t lwip_attributes = {
+  .name = "LwipTask",
+  .stack_size = 1024,
+  .priority = osPriorityNormal
+};
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define SIP_SERVER_IP "192.168.179.1"
+#define SIP_SERVER_IP   "192.168.1.117"
 #define SIP_SERVER_PORT "5160"
 #define SIP_USER		"103"
-#define LOCAL_IP		"192.168.179.30"
+#define LOCAL_IP		"192.168.1.125"
 #define SIP_PASSWORD	"103"
 #define RING_DURATION_TIMEOUT_MSEC 7000
 
 using SipClientT = SipClient<LwipUdpClient, MbedtlsMd5>;
 SipClientT __attribute__((section(".ccmram"))) client{SIP_USER, SIP_PASSWORD, SIP_SERVER_IP, SIP_SERVER_PORT, LOCAL_IP};
-//
+
+extern struct netif gnetif;
+
 ButtonInputHandler<SipClientT, RING_DURATION_TIMEOUT_MSEC> button_input_handler(client);
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == GPIO_PIN_0) {
-//	  BSP_LED_Toggle(LED5);
 	  Event event = Event::BUTTON_PRESS;
-	  xQueueSendToBackFromISR(button_input_handler.m_queue, &event, NULL);
-	  //osMessageQueuePut(button_input_handler.m_queue, &event, osPriorityISR, 0);
+	  osMessageQueuePut(button_input_handler.m_queue, &event, osPriorityISR, 0);
   }
+}
+
+#ifdef __GNUC__
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif
+
+extern "C" {
+	PUTCHAR_PROTOTYPE
+	{
+	  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+	  return ch;
+	}
 }
 /* USER CODE END 0 */
 
@@ -119,26 +160,22 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_USART2_UART_Init();
 
- // osThreadNew(sip_task, NULL, &sipTask_attributes);
-//  MX_MBEDTLS_Init();
+  osKernelInitialize();
+
   /* Call PreOsInit function */
-//  MX_MBEDTLS_Init();
   /* USER CODE BEGIN 2 */
-//  MX_LWIP_Init();
+  event_eth = osEventFlagsNew(NULL);
 
-//  xTaskCreate(&sip_task, "sip_task", 8192, NULL, 5, &xHandle);
-  xTaskCreate(&StartDefaultTask, "button_task", 1024, NULL, 5, &xButtHandle);
-  xTaskCreate(&Led_fun, "led_task", 1024, NULL, 5, &xHandle);
-
+  thread_sip = 		osThreadNew(sip_task, NULL, &sip_attributes);
+  thread_button = 	osThreadNew(but_task, NULL, &but_attributes);
+  thread_lwip = 	osThreadNew(lwip_task, NULL, &lwip_attributes);
   /* Start scheduler */
-  vTaskStartScheduler();
-
+  osKernelStart();
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-  //button_input_handler.run();
   while (1)
   {
     /* USER CODE END WHILE */
@@ -195,13 +232,45 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
   */
 static void MX_GPIO_Init(void)
 {
-
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
@@ -215,16 +284,15 @@ void sip_task(void *pvParameters)
 {
     for(;;)
     {
-        // Wait for wifi connection
-        //xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
+    	osEventFlagsWait(event_eth, COMMAND_ETH_BIT, osFlagsNoClear, osWaitForever);
 
-        if (!client.is_initialized())
+    	if (!client.is_initialized())
         {
             bool result = client.init();
-            //ESP_LOGI(TAG, "SIP client initialized %ssuccessfully", result ? "" : "un");
+            printf("SIP client initialized %ssuccessfully \n", result ? "" : "un");
             if (!result)
             {
-                //ESP_LOGI(TAG, "Waiting to try again...");
+                printf("Waiting to try again...");
                 osDelay(2000);
                 continue;
             }
@@ -234,20 +302,20 @@ void sip_task(void *pvParameters)
                switch (event.event)
                {
                case SipClientEvent::Event::CALL_START:
-                   //ESP_LOGI(TAG, "Call start");
+                   printf( "Call start");
                    break;
                case SipClientEvent::Event::CALL_CANCELLED:
-//                   ESP_LOGI(TAG, "Call cancelled, reason %d", (int) event.cancel_reason);
-//                   button_input_handler.call_end();
+                   printf("Call cancelled, reason %d", (int) event.cancel_reason);
+                   button_input_handler.call_end();
                    break;
                case SipClientEvent::Event::CALL_END:
-//                   ESP_LOGI(TAG, "Call end");
-//                   button_input_handler.call_end();
+                   printf("Call end");
+                   button_input_handler.call_end();
                    osDelay(500);
                    //i2s_pause();
                    break;
                case SipClientEvent::Event::BUTTON_PRESS:
-                   //ESP_LOGI(TAG, "Got button press: %c for %d milliseconds", event.button_signal, event.button_duration);
+                   printf("Got button press: %c for %d milliseconds", event.button_signal, event.button_duration);
                    break;
                }
             });
@@ -256,6 +324,7 @@ void sip_task(void *pvParameters)
         client.run();
     }
 }
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -266,34 +335,27 @@ void sip_task(void *pvParameters)
   */
 /* USER CODE END Header_StartDefaultTask */
 
-void Led_fun(void * argument)
+void lwip_task(void * argument)
 {
+
+	MX_LWIP_Init();
+	client.set_server_ip(std::string(SIP_SERVER_IP));
+	client.set_my_ip(std::string(ip4addr_ntoa(netif_ip4_addr(&gnetif))));
+	osEventFlagsSet(event_eth,COMMAND_ETH_BIT);
+
 	for(;;)
 	{
 			  BSP_LED_Toggle(LED3);
 			  BSP_LED_Toggle(LED4);
 			  BSP_LED_Toggle(LED5);
 			  BSP_LED_Toggle(LED6);
-			  vTaskDelay( 1000/portTICK_PERIOD_MS );
+			  osDelay(1000);
 	}
 }
 
-void StartDefaultTask(void * argument)
+void but_task(void * argument)
 {
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-//  for(;;)
-//  {
-//	  BSP_LED_Toggle(LED3);
-//	  BSP_LED_Toggle(LED4);
-//	  BSP_LED_Toggle(LED5);
-//	  BSP_LED_Toggle(LED6);
 	  button_input_handler.run();
-//  }
-  /* USER CODE END 5 */
-//}
-
-  /* USER CODE END 5 */
 }
 /**
   * @brief  Period elapsed callback in non blocking mode

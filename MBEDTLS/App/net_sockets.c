@@ -223,7 +223,7 @@ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char 
             continue;
         }
 
-        if( _bind( ctx->fd, cur->ai_addr, cur->ai_addrlen ) != 0 )
+        if(_bind( ctx->fd, cur->ai_addr, cur->ai_addrlen ) != 0 )
         {
             close( ctx->fd );
             ret = MBEDTLS_ERR_NET_BIND_FAILED;
@@ -355,7 +355,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
             return( MBEDTLS_ERR_NET_SOCKET_FAILED );
         }
 
-        if( _bind( bind_ctx->fd, (struct sockaddr *) &local_addr, n ) != 0 )
+        if(_bind( bind_ctx->fd, (struct sockaddr *) &local_addr, n ) != 0 )
         {
             return( MBEDTLS_ERR_NET_BIND_FAILED );
         }
@@ -488,7 +488,7 @@ int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
     if( fd < 0 )
         return( MBEDTLS_ERR_NET_INVALID_CONTEXT );
 
-    ret = (int) _read( fd, buf, len );
+    ret = (int)_read( fd, buf, len );
 
     if( ret < 0 )
     {
@@ -559,7 +559,7 @@ int mbedtls_net_send( void *ctx, const unsigned char *buf, size_t len )
   if( fd < 0 )
       return( MBEDTLS_ERR_NET_INVALID_CONTEXT );
 
-  ret = (int) _write( fd, buf, len );
+  ret = (int)_write( fd, buf, len );
 
   if( ret < 0 )
   {
